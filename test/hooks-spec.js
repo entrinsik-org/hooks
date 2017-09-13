@@ -7,7 +7,7 @@ var should = require('chai').should();
 var util = require('util');
 var hooks = require('../lib');
 
-function Query() {
+function Query () {
     hooks.HasHooks.call(this, 'query');
 }
 
@@ -22,7 +22,7 @@ Query.prototype.execute = hooks.hookify(function execute (params) {
 });
 
 
-var events = [ 'datasource.beforeScan', 'datasource.afterScan' ];
+var events = ['datasource.beforeScan', 'datasource.afterScan'];
 
 describe('hooks', function () {
     beforeEach(function () {
@@ -84,7 +84,7 @@ describe('hooks', function () {
         });
 
         it('should pass a callback function if the arity of the callback is greater than call', function () {
-            var listener = function(arg1, arg2, done) {
+            var listener = function (arg1, arg2, done) {
                 done(null, 'yay');
             };
 
@@ -98,7 +98,7 @@ describe('hooks', function () {
         });
 
         it('should fail the promise if the callback function returns an error', function () {
-            var listener = function(arg1, arg2, done) {
+            var listener = function (arg1, arg2, done) {
                 done(new Error('Error!'));
             };
 
@@ -147,10 +147,14 @@ describe('hooks', function () {
             hook0.listenerCount().should.equal(0);
             hook1.listenerCount().should.equal(0);
 
-            var deregFirst0 = hook0.add(function first0Listener(){});
-            var deregSecond0 = hook0.add(function second0Listener(){});
-            var deregFirst1 = hook1.add(function first1Listener(){});
-            var deregSecond1 = hook1.add(function second1Listener(){});
+            var deregFirst0 = hook0.add(function first0Listener () {
+            });
+            var deregSecond0 = hook0.add(function second0Listener () {
+            });
+            var deregFirst1 = hook1.add(function first1Listener () {
+            });
+            var deregSecond1 = hook1.add(function second1Listener () {
+            });
 
             deregFirst0.pair(deregSecond0);
             deregFirst0.pair(deregFirst1);
@@ -171,8 +175,10 @@ describe('hooks', function () {
         it('should bidirectionally pair removal of related hook listeners', function () {
             var hook0 = hooks.create();
             hook0.listenerCount().should.equal(0);
-            var deregFirst0 = hook0.add(function first0Listener(){});
-            var deregSecond0 = hook0.add(function second0Listener(){});
+            var deregFirst0 = hook0.add(function first0Listener () {
+            });
+            var deregSecond0 = hook0.add(function second0Listener () {
+            });
             hook0.listenerCount().should.equal(2);
             deregFirst0.pair(deregSecond0, true);
             deregSecond0.remove();
@@ -186,10 +192,14 @@ describe('hooks', function () {
             hook0.listenerCount().should.equal(0);
             hook1.listenerCount().should.equal(0);
 
-            var deregFirst0 = hook0.add(function first0Listener(){});
-            var deregSecond0 = hook0.add(function second0Listener(){});
-            var deregFirst1 = hook1.add(function first1Listener(){});
-            var deregSecond1 = hook1.add(function second1Listener(){});
+            var deregFirst0 = hook0.add(function first0Listener () {
+            });
+            var deregSecond0 = hook0.add(function second0Listener () {
+            });
+            var deregFirst1 = hook1.add(function first1Listener () {
+            });
+            var deregSecond1 = hook1.add(function second1Listener () {
+            });
 
             deregFirst0.pair(deregSecond0, true);
             deregSecond0.pair(deregFirst1, true);
@@ -207,6 +217,68 @@ describe('hooks', function () {
             deregFirst1.remove();
             hook0.listenerCount().should.equal(0);
             hook1.listenerCount().should.equal(0);
+        });
+
+        it('should allow pairing to updated from unidirectional to bidirectional', function () {
+            var hook0 = hooks.create();
+
+            var deregFirst0 = hook0.add(sinon.spy());
+            var deregSecond0 = hook0.add(sinon.spy());
+            hook0.listenerCount().should.equal(2);
+
+            deregFirst0.pair(deregSecond0);
+            deregFirst0.should.have.property('_paired').that.has.length(1);
+            deregSecond0.should.have.property('_paired').that.has.length(0);
+
+            deregSecond0.remove();
+            hook0.listenerCount().should.equal(1);
+            deregFirst0.should.have.property('_paired').that.has.length(1);
+
+            deregFirst0.remove();
+            hook0.listenerCount().should.equal(0);
+            deregFirst0.should.have.property('_paired').that.has.length(0);
+            deregSecond0.should.have.property('_paired').that.has.length(0);
+
+            deregFirst0 = hook0.add(sinon.spy());
+            deregSecond0 = hook0.add(sinon.spy());
+            deregFirst0.pair(deregSecond0);
+            deregFirst0.should.have.property('_paired').that.has.length(1);
+            deregSecond0.should.have.property('_paired').that.has.length(0);
+            deregFirst0.pair(deregSecond0, true);
+            deregFirst0.should.have.property('_paired').that.has.length(1);
+            deregSecond0.should.have.property('_paired').that.has.length(1);
+        });
+
+        it('should only pair registrations once', function () {
+            var hook = hooks.create();
+            var first = hook.add(sinon.spy());
+            var second = hook.add(sinon.spy());
+            hook.listenerCount().should.equal(2);
+
+            first.pair(second);
+            first.pair(second);
+            first.pair(second);
+            first.pair(second);
+            first.should.have.property('_paired').that.has.length(1);
+            second.should.have.property('_paired').that.has.length(0);
+            first.pair(second, true);
+            first.pair(second, true);
+            first.pair(second, true);
+            first.pair(second, true);
+            first.should.have.property('_paired').that.has.length(1);
+            second.should.have.property('_paired').that.has.length(1);
+            second.pair(first);
+            second.pair(first);
+            second.pair(first);
+            second.pair(first);
+            first.should.have.property('_paired').that.has.length(1);
+            second.should.have.property('_paired').that.has.length(1);
+            second.pair(first, true);
+            second.pair(first, true);
+            second.pair(first, true);
+            second.pair(first, true);
+            first.should.have.property('_paired').that.has.length(1);
+            second.should.have.property('_paired').that.has.length(1);
         });
     });
 
@@ -296,7 +368,7 @@ describe('hooks', function () {
         var query;
 
         beforeEach(function () {
-            hooks.addEvents([ 'query.beforeExecute', 'query.afterExecute' ]);
+            hooks.addEvents(['query.beforeExecute', 'query.afterExecute']);
         });
 
         beforeEach(function () {
