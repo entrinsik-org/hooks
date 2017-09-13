@@ -13,7 +13,8 @@ function Query() {
 
 util.inherits(Query, hooks.HasHooks);
 
-Query.prototype.execute = hooks.hookify(function execute(params) {
+Query.prototype.execute = hooks.hookify(function execute (params) {
+    if (!arguments.length) throw new Error('No params to execute!');
     return {
         params: params,
         results: [1, 2, 3, 4, 5]
@@ -25,7 +26,12 @@ var events = [ 'datasource.beforeScan', 'datasource.afterScan' ];
 
 describe('hooks', function () {
     beforeEach(function () {
+        hooks.hookTypes = {};
         hooks.removeAllListeners();
+    });
+
+    afterEach(function () {
+        hooks.hookTypes = {};
     });
 
     describe('hooks.create()', function () {
@@ -140,6 +146,7 @@ describe('hooks', function () {
     });
 
     it('should support a global listener', function () {
+        hooks.addEvents(events);
         var spy = sinon.spy();
         var datasource = { name: 'World Demo' };
         hooks.on('datasource.beforeScan', spy);
@@ -158,6 +165,7 @@ describe('hooks', function () {
         var instance1 = hooks.newInstance('datasource');
         var instance2 = hooks.newInstance('datasource');
 
+        hooks.addEvents(events);
         hooks.on('datasource.beforeScan', globalSpy);
         instance1.on('beforeScan', listener1);
         instance2.on('beforeScan', listener2);
@@ -244,6 +252,27 @@ describe('hooks', function () {
                 });
         });
 
+        it('should emit a global error event', function () {
+            hooks.addEvents('query.executeError');
+            var spy = sinon.spy();
+            var spy1 = sinon.spy();
+            var spy2 = sinon.spy();
+            hooks.on('query.executeError', spy);
+            hooks.on('query.beforeExecute', spy1);
+            hooks.on('query.afterExecute', spy2);
+            return query.execute()
+                .then(function (result) {
+                    should.not.exist('query.execute.then body getting hit');
+                })
+                .catch(function (err) {
+                    spy.should.have.been.calledOnce;
+                    spy.should.have.been.calledWith(query, err);
+                    spy1.should.have.been.calledOnce;
+                    spy1.should.have.been.calledWith(query);
+                    spy2.should.not.have.been.called;
+                });
+        });
+
         it('should emit an instance event', function () {
             var spy1 = sinon.spy(), spy2 = sinon.spy();
 
@@ -261,6 +290,80 @@ describe('hooks', function () {
                     spy2.should.have.been.calledOnce;
                     spy1.should.have.been.calledWith(q1, 'foo');
                     spy2.should.have.been.calledWith(q2, 'bar');
+                });
+        });
+
+        it('should emit an instance error event', function () {
+            hooks.addEvents('query.executeError');
+            var spy1 = sinon.spy(),
+                spy2 = sinon.spy(),
+                spy3 = sinon.spy(),
+                spy4 = sinon.spy(),
+                spy5 = sinon.spy(),
+                spy6 = sinon.spy(),
+                q1Err, q2Err;
+
+            var q1 = new Query();
+            var q2 = new Query();
+            q1.on('beforeExecute', spy1);
+            q1.on('executeError', spy3);
+            q1.on('afterExecute', spy5);
+            q2.on('beforeExecute', spy2);
+            q2.on('executeError', spy4);
+            q2.on('afterExecute', spy6);
+
+            return q1.execute()
+                .then(function () {
+                    should.not.exist('q1.execute.then body getting hit');
+                })
+                .catch(function (err) {
+                    q1Err = err;
+                })
+                .finally(function () {
+                    spy1.should.have.been.calledOnce;
+                    spy1.should.have.been.calledWith(q1);
+                    should.exist(q1Err);
+                    q1Err.should.be.an.instanceof(Error);
+                    q1Err.should.have.property('message', 'No params to execute!');
+                    spy3.should.have.been.calledOnce;
+                    spy3.should.have.been.calledWith(q1, q1Err);
+                    spy5.should.not.have.been.called;
+
+                    return q2.execute()
+                        .then(function () {
+                            should.not.exist('q2.execute.then body getting hit');
+                        })
+                        .catch(function (err) {
+                            q2Err = err;
+                            spy2.should.have.been.calledOnce;
+                            spy2.should.have.been.calledWith(q2);
+                            should.exist(q2Err);
+                            q2Err.should.be.an.instanceof(Error);
+                            spy4.should.have.been.calledOnce;
+                            spy4.should.have.been.calledWith(q2, q2Err);
+                            q2Err.should.have.property('message', 'No params to execute!');
+                            spy6.should.not.have.been.called;
+                        });
+                });
+        });
+
+        it('should ignore \'Unknown event\' error & gracefully continue normally (ie. re-throw original error) when a hookified function throws and no error hook event was added', function () {
+            var spy1 = sinon.spy(), spy2 = sinon.spy();
+
+            var q1 = new Query();
+            q1.on('beforeExecute', spy1);
+            q1.on('afterExecute', spy2);
+
+            return q1.execute()
+                .then(function () {
+                    throw new Error('Should not succeed!');
+                })
+                .catch(function (err) {
+                    spy1.should.have.been.calledOnce;
+                    spy1.should.have.been.calledWith(q1);
+                    spy2.should.not.have.been.called;
+                    err.should.not.have.property('message', 'Unknown event: query.executeError');
+                    err.should.have.property('message', 'No params to execute!');
                 });
         });
     });
