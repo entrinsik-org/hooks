@@ -139,6 +139,75 @@ describe('hooks', function () {
             hook.remove(listener);
             hook.listenerCount().should.equal(0);
         });
+
+        it('should unidirectionally pair removal of related hook listeners', function () {
+            var hook0 = hooks.create();
+            var hook1 = hooks.create();
+
+            hook0.listenerCount().should.equal(0);
+            hook1.listenerCount().should.equal(0);
+
+            var deregFirst0 = hook0.add(function first0Listener(){});
+            var deregSecond0 = hook0.add(function second0Listener(){});
+            var deregFirst1 = hook1.add(function first1Listener(){});
+            var deregSecond1 = hook1.add(function second1Listener(){});
+
+            deregFirst0.pair(deregSecond0);
+            deregFirst0.pair(deregFirst1);
+            deregFirst0.pair(deregSecond1);
+
+            hook0.listenerCount().should.equal(2);
+            hook1.listenerCount().should.equal(2);
+
+            deregSecond0.remove();
+            hook0.listenerCount().should.equal(1);
+            hook1.listenerCount().should.equal(2);
+
+            deregFirst0.remove();
+            hook0.listenerCount().should.equal(0);
+            hook1.listenerCount().should.equal(0);
+        });
+
+        it('should bidirectionally pair removal of related hook listeners', function () {
+            var hook0 = hooks.create();
+            hook0.listenerCount().should.equal(0);
+            var deregFirst0 = hook0.add(function first0Listener(){});
+            var deregSecond0 = hook0.add(function second0Listener(){});
+            hook0.listenerCount().should.equal(2);
+            deregFirst0.pair(deregSecond0, true);
+            deregSecond0.remove();
+            hook0.listenerCount().should.equal(0);
+        });
+
+        it('should pair removal of related hook listeners', function () {
+            var hook0 = hooks.create();
+            var hook1 = hooks.create();
+
+            hook0.listenerCount().should.equal(0);
+            hook1.listenerCount().should.equal(0);
+
+            var deregFirst0 = hook0.add(function first0Listener(){});
+            var deregSecond0 = hook0.add(function second0Listener(){});
+            var deregFirst1 = hook1.add(function first1Listener(){});
+            var deregSecond1 = hook1.add(function second1Listener(){});
+
+            deregFirst0.pair(deregSecond0, true);
+            deregSecond0.pair(deregFirst1, true);
+            deregFirst1.pair(deregSecond1, true);
+            deregSecond1.pair(deregFirst0, true);
+
+            hook0.listenerCount().should.equal(2);
+            hook1.listenerCount().should.equal(2);
+
+            deregFirst0.should.have.property('_paired').that.has.length(2);
+            deregSecond0.should.have.property('_paired').that.has.length(2);
+            deregFirst1.should.have.property('_paired').that.has.length(2);
+            deregSecond1.should.have.property('_paired').that.has.length(2);
+
+            deregFirst1.remove();
+            hook0.listenerCount().should.equal(0);
+            hook1.listenerCount().should.equal(0);
+        });
     });
 
     it('should support registering events', function () {
