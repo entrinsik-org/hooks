@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "bluebird": "^2.9.13",
-    "ent-utils": "^1.0.0",
+    "ent-utils": "^4.10.0",
     "lodash": "^3.5.0"
   }
 }
