@@ -144,7 +144,7 @@ describe('hooks', function () {
         var datasource = { name: 'World Demo' };
         hooks.on('datasource.beforeScan', spy);
         return hooks.runHook('datasource.beforeScan', datasource)
-            .then(function (result) {
+            .then(function () {
                 spy.should.have.been.calledOnce;
                 spy.should.have.been.calledWith(datasource);
             });
